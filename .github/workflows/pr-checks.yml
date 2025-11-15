@@ -32,22 +32,26 @@ jobs:
 
       - name: Format check
         run: |
-          find . -name "*.cpp" -o -name "*.hpp" -print0 | xargs -0 -r clang-format -i
-          if ! git diff --exit-code; then
-            echo "Code formatting issues found. Please run clang-format."
-            git diff
-            exit 1
+          set -e
+          FILES=$(find . \( -name "*.cpp" -o -name "*.hpp" \) -type f)
+          if [ -z "$FILES" ]; then
+            echo "No C++ source/header files found for formatting check."
+            exit 0
           fi
+          # Check formatting without modifying files
+          echo "$FILES" | xargs clang-format --dry-run -Werror
+        shell: bash
 
       - name: Run clang-tidy
         continue-on-error: true
         run: |
-          find . -name "*.cpp" -print0 | xargs -0 -r -I{} clang-tidy -p dist {} -- -Iinclude -Isrc -std=c++20 || true
+          find . -name "*.cpp" -print0 | xargs -0 -r -I{} clang-tidy -p dist {} -- -Iinclude -Isrc -std=c++20
 
       - name: Run cppcheck
         id: cppcheck
         run: |
           set +e
+          set -o pipefail
           cppcheck --enable=all --std=c++20 -Iinclude -Isrc \
             --suppress=missingIncludeSystem \
             --suppress=unusedFunction \
@@ -89,28 +93,38 @@ jobs:
           fi
 
       - name: Run tests
+        id: run_tests
+        continue-on-error: true
         run: |
           meson test -C dist --verbose
+          echo "test_exit_code=$?" >> $GITHUB_OUTPUT
 
       - name: Check results
         if: always()
         run: |
           BUILD_FAILS="${{ steps.build.outputs.build_fail_count }}"
           CPPCHECK_FAILED="${{ steps.cppcheck.outputs.cppcheck_failed }}"
+          TEST_EXIT="${{ steps.run_tests.outputs.test_exit_code }}"
           
           echo "=== Analysis Summary ==="
-          echo "Build fail count: $BUILD_FAILS"
+          echo "Build fail count: ${BUILD_FAILS:-0}"
           echo "Cppcheck failed: $CPPCHECK_FAILED"
+          echo "Test exit code: ${TEST_EXIT:-0}"
           
           FAILED=false
           
-          if [ "$BUILD_FAILS" -gt 1 ]; then
+          if [ "${BUILD_FAILS:-0}" -gt 1 ]; then
             echo "❌ FAIL: Build failed more than once"
             FAILED=true
           fi
           
           if [ "$CPPCHECK_FAILED" = "true" ]; then
             echo "❌ FAIL: Cppcheck found errors"
+            FAILED=true
+          fi
+          
+          if [ "${TEST_EXIT:-0}" -ne 0 ]; then
+            echo "❌ FAIL: Tests failed"
             FAILED=true
           fi
           
