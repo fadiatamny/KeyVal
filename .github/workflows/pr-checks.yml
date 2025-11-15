@@ -1,0 +1,122 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            meson \
+            ninja-build \
+            clang-format \
+            clang-tidy \
+            cppcheck \
+            g++ \
+            pkg-config
+
+      - name: Setup build directory
+        run: |
+          meson setup dist
+
+      - name: Format check
+        run: |
+          find . -name "*.cpp" -o -name "*.hpp" -print0 | xargs -0 -r clang-format -i
+          if ! git diff --exit-code; then
+            echo "Code formatting issues found. Please run clang-format."
+            git diff
+            exit 1
+          fi
+
+      - name: Run clang-tidy
+        continue-on-error: true
+        run: |
+          find . -name "*.cpp" -print0 | xargs -0 -r -I{} clang-tidy -p dist {} -- -Iinclude -Isrc -std=c++20 || true
+
+      - name: Run cppcheck
+        id: cppcheck
+        run: |
+          set +e
+          cppcheck --enable=all --std=c++20 -Iinclude -Isrc \
+            --suppress=missingIncludeSystem \
+            --suppress=unusedFunction \
+            --error-exitcode=1 \
+            src/ 2>&1 | tee cppcheck.log
+          CPPCHECK_EXIT=$?
+          set -e
+          
+          if [ $CPPCHECK_EXIT -ne 0 ]; then
+            echo "cppcheck_failed=true" >> $GITHUB_OUTPUT
+            cat cppcheck.log
+            echo "❌ Cppcheck found errors"
+            exit 1
+          else
+            echo "cppcheck_failed=false" >> $GITHUB_OUTPUT
+            echo "✅ Cppcheck passed"
+          fi
+
+      - name: Build project
+        id: build
+        run: |
+          BUILD_FAILED=0
+          for i in 1 2; do
+            echo "Build attempt $i"
+            if ! meson compile -C dist; then
+              BUILD_FAILED=$((BUILD_FAILED + 1))
+              echo "Build attempt $i failed"
+            else
+              echo "Build attempt $i succeeded"
+              break
+            fi
+          done
+          
+          echo "build_fail_count=$BUILD_FAILED" >> $GITHUB_OUTPUT
+          
+          if [ $BUILD_FAILED -gt 1 ]; then
+            echo "❌ Build failed more than once (failed $BUILD_FAILED times)"
+            exit 1
+          fi
+
+      - name: Run tests
+        run: |
+          meson test -C dist --verbose
+
+      - name: Check results
+        if: always()
+        run: |
+          BUILD_FAILS="${{ steps.build.outputs.build_fail_count }}"
+          CPPCHECK_FAILED="${{ steps.cppcheck.outputs.cppcheck_failed }}"
+          
+          echo "=== Analysis Summary ==="
+          echo "Build fail count: $BUILD_FAILS"
+          echo "Cppcheck failed: $CPPCHECK_FAILED"
+          
+          FAILED=false
+          
+          if [ "$BUILD_FAILS" -gt 1 ]; then
+            echo "❌ FAIL: Build failed more than once"
+            FAILED=true
+          fi
+          
+          if [ "$CPPCHECK_FAILED" = "true" ]; then
+            echo "❌ FAIL: Cppcheck found errors"
+            FAILED=true
+          fi
+          
+          if [ "$FAILED" = "true" ]; then
+            echo "❌ PR checks failed"
+            exit 1
+          else
+            echo "✅ All PR checks passed"
+          fi

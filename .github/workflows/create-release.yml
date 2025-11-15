@@ -1,0 +1,114 @@
+name: Create Release on Tag
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get tag name
+        id: tag
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "version=${TAG_NAME#v}" >> $GITHUB_OUTPUT
+          echo "Tag: $TAG_NAME"
+
+      - name: Get previous tag
+        id: prev_tag
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 ${{ steps.tag.outputs.tag_name }}^ 2>/dev/null || echo "")
+          echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+          if [ -z "$PREV_TAG" ]; then
+            echo "No previous tag found"
+          else
+            echo "Previous tag: $PREV_TAG"
+          fi
+
+      - name: Get commit summary
+        id: commits
+        run: |
+          PREV_TAG="${{ steps.prev_tag.outputs.prev_tag }}"
+          
+          if [ -z "$PREV_TAG" ]; then
+            # No previous tag, get all commits
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges)
+          else
+            # Get commits since last tag
+            COMMITS=$(git log $PREV_TAG..${{ steps.tag.outputs.tag_name }} --pretty=format:"- %s (%h)" --no-merges)
+          fi
+          
+          # Save to file to handle multiline
+          echo "$COMMITS" > commits.txt
+          echo "Commits for this release:"
+          cat commits.txt
+
+      - name: Create release notes
+        id: release_notes
+        run: |
+          TAG_NAME="${{ steps.tag.outputs.tag_name }}"
+          VERSION="${{ steps.tag.outputs.version }}"
+          PREV_TAG="${{ steps.prev_tag.outputs.prev_tag }}"
+          
+          cat > RELEASE_NOTES.md << 'EOF'
+          # Release ${{ steps.tag.outputs.tag_name }}
+          
+          ## 📋 Changes
+          
+          EOF
+          
+          cat commits.txt >> RELEASE_NOTES.md
+          
+          cat >> RELEASE_NOTES.md << EOF
+          
+          ## 📦 Build Information
+          
+          - **Version:** $VERSION
+          - **Build Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          - **Commit:** ${{ github.sha }}
+          EOF
+          
+          if [ -n "$PREV_TAG" ]; then
+            echo "- **Previous Version:** ${PREV_TAG#v}" >> RELEASE_NOTES.md
+          fi
+          
+          echo "" >> RELEASE_NOTES.md
+          echo "---" >> RELEASE_NOTES.md
+          echo "*Released automatically from tag push*" >> RELEASE_NOTES.md
+          
+          echo "Release notes created:"
+          cat RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.tag_name }}
+          name: Release ${{ steps.tag.outputs.tag_name }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "## 🎉 Release Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** ${{ steps.tag.outputs.tag_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.tag.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📝 Commits Included" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat commits.txt >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ GitHub Release published successfully!" >> $GITHUB_STEP_SUMMARY
