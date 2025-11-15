@@ -1,0 +1,11 @@
+# clangd configuration: provide fallback include paths so the language server
+# can resolve headers located in the repository when compile_commands.json
+# isn't available or hasn't been picked up yet.
+CompileFlags:
+  Add: ["-Isrc"]
+
+# Note: If you generate a compile_commands.json in dist (Meson does this),
+# it's best to either symlink it to the repository root:
+#   ln -s dist/compile_commands.json compile_commands.json
+# or configure your editor/clangd to use the dist compile database so
+# that per-file compile flags are derived from the build system instead.
