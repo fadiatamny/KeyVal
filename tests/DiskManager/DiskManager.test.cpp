@@ -14,15 +14,15 @@ namespace fs = std::filesystem;
 
 static std::string make_temp_db_path() {
 
-
   auto tmp = fs::temp_directory_path();
-  auto now = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+  auto now =
+      std::chrono::high_resolution_clock::now().time_since_epoch().count();
   std::random_device rd;
   std::mt19937_64 eng(rd());
   std::uniform_int_distribution<uint64_t> dist;
   uint64_t r = dist(eng);
-  std::string filename = "keyval_test_diskmanager_" + std::to_string(now) + "_" +
-                         std::to_string(r) + ".db";
+  std::string filename = "keyval_test_diskmanager_" + std::to_string(now) +
+                         "_" + std::to_string(r) + ".db";
   return (tmp / filename).string();
 }
 
@@ -65,7 +65,6 @@ static void test_write_and_read_block_contents() {
     BlockId id = dm.AllocateBlock();
     assert(id == 0u);
 
-
     std::vector<char> write_buf(BLOCK_SIZE, 0);
     for (size_t i = 0; i < write_buf.size(); ++i) {
       write_buf[i] = static_cast<char>((i & 0xFF));
@@ -73,13 +72,10 @@ static void test_write_and_read_block_contents() {
 
     dm.WriteBlock(id, write_buf.data());
 
-
     dm.SyncFile();
-
 
     std::vector<char> read_buf(BLOCK_SIZE, 0xFF);
     dm.ReadBlock(id, read_buf.data());
-
 
     int cmp = std::memcmp(write_buf.data(), read_buf.data(), BLOCK_SIZE);
     assert(cmp == 0 && "Read buffer should match written buffer");
@@ -95,7 +91,6 @@ static void test_read_unallocated_block_throws() {
   try {
     std::string modpath = path;
     DiskManager dm(modpath);
-
 
     std::vector<char> buf(BLOCK_SIZE, 0);
     bool threw = false;

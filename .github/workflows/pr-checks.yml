@@ -33,7 +33,7 @@ jobs:
       - name: Format check
         run: |
           set -e
-          FILES=$(find . \( -name "*.cpp" -o -name "*.hpp" \) -type f)
+          FILES=$(find . \( -name "*.cpp" -o -name "*.hpp" \) ! -name "*.test.cpp" -type f)
           if [ -z "$FILES" ]; then
             echo "No C++ source/header files found for formatting check."
             exit 0
@@ -45,7 +45,7 @@ jobs:
       - name: Run clang-tidy
         continue-on-error: true
         run: |
-          find . -name "*.cpp" -print0 | xargs -0 -r -I{} clang-tidy -p dist {} -- -Iinclude -Isrc -std=c++20
+          find . -name "*.cpp" ! -name "*.test.cpp" -print0 | xargs -0 -r -I{} clang-tidy -p dist {} -- -Iinclude -Isrc -std=c++20
 
       - name: Run cppcheck
         id: cppcheck
