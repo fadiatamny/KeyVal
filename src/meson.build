@@ -1,5 +1,6 @@
 sources = files([
   './main.cpp',
+  './models/DiskManager/DiskManager.cpp',
 ])
 
 executable('app', sources,
