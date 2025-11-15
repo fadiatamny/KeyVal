@@ -1,0 +1,182 @@
+name: Version Bump and Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: 'patch'
+
+jobs:
+  version-bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if commit is a version bump
+        id: check_commit
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          if [[ "$COMMIT_MSG" == *"chore: bump version"* ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "This is a version bump commit, skipping..."
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Determine bump type
+        if: steps.check_commit.outputs.skip == 'false'
+        id: bump_type
+        run: |
+          # If manually triggered, use the input
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BUMP_TYPE="${{ inputs.bump_type }}"
+            echo "Manual trigger detected: $BUMP_TYPE"
+          else
+            # Get the squash commit message (first line)
+            COMMIT_MSG=$(git log -1 --pretty=%s)
+            echo "Analyzing commit: $COMMIT_MSG"
+            
+            # Determine bump type based on prefix
+            if [[ "$COMMIT_MSG" =~ ^[Cc]hore[:\-[:space:]] ]]; then
+              BUMP_TYPE="none"
+              echo "Chore commit detected - no version bump"
+            elif [[ "$COMMIT_MSG" =~ ^[Mm]ajor[:\-[:space:]] ]]; then
+              BUMP_TYPE="major"
+              echo "Major commit detected - major version bump"
+            elif [[ "$COMMIT_MSG" =~ ^[Ff]eat[:\-[:space:]]|^[Ff]eature[:\-[:space:]] ]]; then
+              BUMP_TYPE="minor"
+              echo "Feature commit detected - minor version bump"
+            elif [[ "$COMMIT_MSG" =~ ^[Ff]ix[:\-[:space:]] ]]; then
+              BUMP_TYPE="patch"
+              echo "Fix commit detected - patch version bump"
+            else
+              BUMP_TYPE="patch"
+              echo "No recognized prefix - defaulting to patch version bump"
+            fi
+          fi
+          
+          echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+          echo "Selected bump type: $BUMP_TYPE"
+
+      - name: Get current version
+        if: steps.check_commit.outputs.skip == 'false' && steps.bump_type.outputs.bump_type != 'none'
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(grep "version :" meson.build | sed "s/.*version : '\(.*\)'.*/\1/")
+          if [ -z "$CURRENT_VERSION" ]; then
+            echo "Error: Could not extract current version from meson.build" >&2
+            exit 1
+          fi
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
+
+      - name: Bump version
+        if: steps.check_commit.outputs.skip == 'false' && steps.bump_type.outputs.bump_type != 'none'
+        id: bump_version
+        run: |
+          CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
+          BUMP_TYPE="${{ steps.bump_type.outputs.bump_type }}"
+          
+          # Validate version format: must be MAJOR.MINOR.PATCH (all numeric)
+          if [[ ! "$CURRENT_VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "Error: Version '$CURRENT_VERSION' is not in MAJOR.MINOR.PATCH format." >&2
+            exit 1
+          fi
+          
+          MAJOR="${BASH_REMATCH[1]}"
+          MINOR="${BASH_REMATCH[2]}"
+          PATCH="${BASH_REMATCH[3]}"
+          
+          # Bump version based on type
+          case "$BUMP_TYPE" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+            *)
+              echo "Error: Invalid bump type '$BUMP_TYPE'" >&2
+              exit 1
+              ;;
+          esac
+          
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION (bump type: $BUMP_TYPE)"
+          
+          # Update meson.build (robust to whitespace and quote style)
+          sed -i -E "s/(version[[:space:]]*:[[:space:]]*)['\"]$CURRENT_VERSION['\"]/\\1'$NEW_VERSION'/" meson.build
+          
+          # Validate that the version was updated
+          if ! grep -q "version[[:space:]]*:[[:space:]]*['\"]$NEW_VERSION['\"]" meson.build; then
+            echo "Error: Failed to update version in meson.build" >&2
+            exit 1
+          fi
+
+      - name: Commit version bump
+        if: steps.check_commit.outputs.skip == 'false' && steps.bump_type.outputs.bump_type != 'none'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add meson.build
+          git commit -m "chore: bump version to ${{ steps.bump_version.outputs.new_version }}"
+          git push
+
+      - name: Create and push tag
+        if: steps.check_commit.outputs.skip == 'false' && steps.bump_type.outputs.bump_type != 'none'
+        run: |
+          NEW_VERSION="${{ steps.bump_version.outputs.new_version }}"
+          git tag -a "v$NEW_VERSION" -m "Release version $NEW_VERSION"
+          git push origin "v$NEW_VERSION"
+
+      - name: Summary
+        if: steps.check_commit.outputs.skip == 'false' && steps.bump_type.outputs.bump_type != 'none'
+        run: |
+          echo "## 🔖 Version Bump Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**New Version:** v${{ steps.bump_version.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Previous Version:** v${{ steps.current_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Bump Type:** ${{ steps.bump_type.outputs.bump_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "**Trigger:** Manual (workflow_dispatch)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Trigger:** Automatic (push to main)" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Version bumped and tag created" >> $GITHUB_STEP_SUMMARY
+          echo "🚀 Release workflow will be triggered automatically" >> $GITHUB_STEP_SUMMARY
+
+      - name: Skipped Summary
+        if: steps.check_commit.outputs.skip == 'false' && steps.bump_type.outputs.bump_type == 'none'
+        run: |
+          echo "## ⏭️ Version Bump Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** Chore commit detected - no version bump required" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ℹ️ Chore commits do not trigger version bumps" >> $GITHUB_STEP_SUMMARY
