@@ -2,7 +2,7 @@
 #include <iostream>
 #include <vector>
 
-DiskManager::DiskManager(std::string &path) : path(path), blockCount(0) {
+DiskManager::DiskManager(const std::string &path) : path(path), blockCount(0) {
   this->db.open(this->path, std::ios::in | std::ios::out | std::ios::binary);
 
   if (!this->db.is_open()) {
@@ -10,10 +10,21 @@ DiskManager::DiskManager(std::string &path) : path(path), blockCount(0) {
     this->db.open(this->path, std::ios::out | std::ios::binary);
     this->db.close();
     this->db.open(this->path, std::ios::in | std::ios::out | std::ios::binary);
+
+    if (!this->db.is_open()) {
+      this->ThrowIOError("Failed to open database file: " + this->path);
+    }
   }
 
   this->db.seekg(0, std::ios::end);
-  this->blockCount = this->db.tellg() / BLOCK_SIZE;
+
+  std::streampos endPos = this->db.tellg();
+  if (endPos == -1) {
+    this->db.clear();
+    this->ThrowIOError("Failed to determine file size with tellg()");
+  }
+
+  this->blockCount = static_cast<long long>(endPos) / BLOCK_SIZE;
 }
 
 DiskManager::~DiskManager() { this->db.close(); }
@@ -44,7 +55,7 @@ BlockId DiskManager::AllocateBlock() {
   return newBlockId;
 }
 
-void DiskManager::ReadBlock(BlockId id, const char *buff) {
+void DiskManager::ReadBlock(BlockId id, char *buff) {
   if (!this->db.is_open()) {
     this->ThrowIOError("Trying to read from closed DB");
   }
@@ -52,7 +63,7 @@ void DiskManager::ReadBlock(BlockId id, const char *buff) {
     this->ThrowIOError("Trying to read into null buffer");
   }
   if (id >= this->blockCount) {
-    this->ThrowIOError("Trying to read non allocated block " +
+    this->ThrowIOError("Trying to read unallocated block " +
                        std::to_string(id));
   }
 
@@ -85,7 +96,7 @@ void DiskManager::WriteBlock(BlockId id, const char *buff) {
     this->ThrowIOError("Trying to write from null buffer");
   }
   if (id >= this->blockCount) {
-    this->ThrowIOError("Trying to write non allocated block " +
+    this->ThrowIOError("Trying to write unallocated block " +
                        std::to_string(id));
   }
 
