@@ -3,14 +3,14 @@ name: Create Release on Tag
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*'
 
 jobs:
   create-release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -40,7 +40,7 @@ jobs:
         id: commits
         run: |
           PREV_TAG="${{ steps.prev_tag.outputs.prev_tag }}"
-          
+
           if [ -z "$PREV_TAG" ]; then
             # No previous tag, get all commits
             COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges)
@@ -48,7 +48,7 @@ jobs:
             # Get commits since last tag
             COMMITS=$(git log $PREV_TAG..${{ steps.tag.outputs.tag_name }} --pretty=format:"- %s (%h)" --no-merges)
           fi
-          
+
           # Save to file to handle multiline
           echo "$COMMITS" > commits.txt
           echo "Commits for this release:"
@@ -60,33 +60,33 @@ jobs:
           TAG_NAME="${{ steps.tag.outputs.tag_name }}"
           VERSION="${{ steps.tag.outputs.version }}"
           PREV_TAG="${{ steps.prev_tag.outputs.prev_tag }}"
-          
+
           cat > RELEASE_NOTES.md << 'EOF'
           # Release ${{ steps.tag.outputs.tag_name }}
-          
+
           ## 📋 Changes
-          
+
           EOF
-          
+
           cat commits.txt >> RELEASE_NOTES.md
-          
+
           cat >> RELEASE_NOTES.md << EOF
-          
+
           ## 📦 Build Information
-          
+
           - **Version:** $VERSION
           - **Build Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
           - **Commit:** ${{ github.sha }}
           EOF
-          
+
           if [ -n "$PREV_TAG" ]; then
             echo "- **Previous Version:** ${PREV_TAG#v}" >> RELEASE_NOTES.md
           fi
-          
+
           echo "" >> RELEASE_NOTES.md
           echo "---" >> RELEASE_NOTES.md
           echo "*Released automatically from tag push*" >> RELEASE_NOTES.md
-          
+
           echo "Release notes created:"
           cat RELEASE_NOTES.md
 
