@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -52,7 +52,7 @@ jobs:
             # Get the squash commit message (first line)
             COMMIT_MSG=$(git log -1 --pretty=%s)
             echo "Analyzing commit: $COMMIT_MSG"
-            
+
             # Determine bump type based on prefix
             if [[ "$COMMIT_MSG" =~ ^[Cc]hore[:\-[:space:]] ]]; then
               BUMP_TYPE="none"
@@ -71,7 +71,7 @@ jobs:
               echo "No recognized prefix - defaulting to patch version bump"
             fi
           fi
-          
+
           echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
           echo "Selected bump type: $BUMP_TYPE"
 
@@ -93,17 +93,17 @@ jobs:
         run: |
           CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
           BUMP_TYPE="${{ steps.bump_type.outputs.bump_type }}"
-          
+
           # Validate version format: must be MAJOR.MINOR.PATCH (all numeric)
           if [[ ! "$CURRENT_VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
             echo "Error: Version '$CURRENT_VERSION' is not in MAJOR.MINOR.PATCH format." >&2
             exit 1
           fi
-          
+
           MAJOR="${BASH_REMATCH[1]}"
           MINOR="${BASH_REMATCH[2]}"
           PATCH="${BASH_REMATCH[3]}"
-          
+
           # Bump version based on type
           case "$BUMP_TYPE" in
             major)
@@ -123,15 +123,15 @@ jobs:
               exit 1
               ;;
           esac
-          
+
           NEW_VERSION="$MAJOR.$MINOR.$PATCH"
-          
+
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "New version: $NEW_VERSION (bump type: $BUMP_TYPE)"
-          
+
           # Update meson.build (robust to whitespace and quote style)
           sed -i -E "s/(version[[:space:]]*:[[:space:]]*)['\"]$CURRENT_VERSION['\"]/\\1'$NEW_VERSION'/" meson.build
-          
+
           # Validate that the version was updated
           if ! grep -q "version[[:space:]]*:[[:space:]]*['\"]$NEW_VERSION['\"]" meson.build; then
             echo "Error: Failed to update version in meson.build" >&2
@@ -152,7 +152,7 @@ jobs:
         run: |
           NEW_VERSION="${{ steps.bump_version.outputs.new_version }}"
           git tag -a "v$NEW_VERSION" -m "Release version $NEW_VERSION"
-          git push origin "v$NEW_VERSION"
+          git push origin "v$NEW_VERSION" --follow-tags
 
       - name: Summary
         if: steps.check_commit.outputs.skip == 'false' && steps.bump_type.outputs.bump_type != 'none'
