@@ -39,3 +39,8 @@
 
 # debug information files
 *.dwo
+
+dist/
+dist/**/*
+
+.cppcheck.*

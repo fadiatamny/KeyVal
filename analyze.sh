@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "=== Formatting Code ==="
-find . -name "*.cpp" -o -name "*.hpp" -print0 | xargs -0 -r clang-format -i
+find . \( -name "*.cpp" -o -name "*.hpp" \) -print0 | xargs -0 -r clang-format -i
 
 echo "=== Running clang-tidy (recursively, using dist) ==="
 if [ ! -f dist/compile_commands.json ]; then
@@ -11,7 +11,8 @@ fi
 find . -name "*.cpp" -print0 | xargs -0 -r -I{} clang-tidy -p dist {} -- -Iinclude -Isrc -std=c++20 || true
 
 echo "=== Running cppcheck ==="
-cppcheck --enable=all --std=c++20 -Iinclude -Isrc --suppress=missingIncludeSystem src/
+# cppcheck --enable=all --std=c++20 -Iinclude -Isrc --suppressions-list=.cppcheck-suppressions --checkers-report=.cppcheck.checkers src/ 2>&1 | tee .cppcheck.report
+cppcheck --enable=all --std=c++20 -Iinclude -Isrc --suppressions-list=.cppcheck-suppressions src/
 
 echo "=== Building ==="
 meson compile -C dist

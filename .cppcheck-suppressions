@@ -1,0 +1,12 @@
+# Cppcheck Suppressions Configuration
+# This file contains suppression rules for cppcheck static analysis
+
+# Suppress missing system include warnings
+missingIncludeSystem
+
+# Suppress unused function warnings (common in libraries and test code)
+unusedFunction
+
+# Add more suppressions below as needed
+# Format: suppressionType:file:line
+# Example: uninitvar:src/example.cpp:42
