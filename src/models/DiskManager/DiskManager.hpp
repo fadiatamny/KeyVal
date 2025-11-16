@@ -1,8 +1,8 @@
 #pragma once
-
-#include <cstdint>
+#include "../../types//Constants.hpp"
 #include <cstring>
 #include <fstream>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 
@@ -12,8 +12,6 @@ public:
       : std::runtime_error(message) {}
 };
 
-constexpr int BLOCK_SIZE = 4096; // 4KB
-using BlockId = uint32_t;
 
 class DiskManager {
 public:
@@ -29,6 +27,7 @@ private:
   std::string path;
   std::fstream db;
   BlockId blockCount;
+  mutable std::mutex mutex;
 
   long long GetBlockOffset(BlockId id) {
     return static_cast<long long>(id) * BLOCK_SIZE;
