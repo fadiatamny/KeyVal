@@ -1,8 +1,9 @@
 #include "./BufferPool.hpp"
 
-BufferPool::BufferPool(size_t poolSize, std::unique_ptr<DiskManager> diskManager)
-    : poolSize(poolSize), diskManager(std::move(diskManager)),
-      pool(poolSize), isFree(poolSize, true) {
+BufferPool::BufferPool(size_t poolSize,
+                       std::unique_ptr<DiskManager> diskManager)
+    : poolSize(poolSize), diskManager(std::move(diskManager)), pool(poolSize),
+      isFree(poolSize, true) {
   // Initialize all frames as free
   // blockTable and evictionList start empty
 }
@@ -31,7 +32,7 @@ Block *BufferPool::FetchBlock(BlockId blockId) {
   //      g. Mark frame as in use (call MarkFrameInUse)
   //      h. Return pointer to the block
 
-  return nullptr;  // TODO: Replace with actual implementation
+  return nullptr; // TODO: Replace with actual implementation
 }
 
 Block *BufferPool::NewBlock() {
@@ -50,14 +51,14 @@ Block *BufferPool::NewBlock() {
   // 6. Mark frame as in use (call MarkFrameInUse)
   // 7. Return pointer to the block
 
-  return nullptr;  // TODO: Replace with actual implementation
+  return nullptr; // TODO: Replace with actual implementation
 }
 
 void BufferPool::ReleaseBlock(BlockId blockId, bool isDirty) {
   // Check if block exists in the pool
   if (blockTable.find(blockId) == blockTable.end()) {
     throw BufferPoolException("Attempting to release block not in pool: " +
-                             std::to_string(blockId));
+                              std::to_string(blockId));
   }
 
   // Get the frame
@@ -69,7 +70,7 @@ void BufferPool::ReleaseBlock(BlockId blockId, bool isDirty) {
 
   if (block->referenceCount < 0) {
     throw BufferPoolException("Reference count went negative for block: " +
-                             std::to_string(blockId));
+                              std::to_string(blockId));
   }
 
   // Update dirty flag if the caller marked it dirty

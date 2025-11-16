@@ -12,7 +12,6 @@ public:
       : std::runtime_error(message) {}
 };
 
-
 class DiskManager {
 public:
   explicit DiskManager(const std::string &path);
