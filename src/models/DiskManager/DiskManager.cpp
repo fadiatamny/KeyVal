@@ -28,9 +28,13 @@ DiskManager::DiskManager(const std::string &path) : path(path), blockCount(0) {
 }
 
 DiskManager::~DiskManager() { this->db.close(); }
-void DiskManager::SyncFile() { this->db.flush(); }
+void DiskManager::SyncFile() {
+  std::lock_guard<std::mutex> lock(this->mutex);
+  this->db.flush();
+}
 
 BlockId DiskManager::AllocateBlock() {
+  std::lock_guard<std::mutex> lock(this->mutex);
   BlockId newBlockId = this->blockCount;
   long long offset = this->GetBlockOffset(newBlockId);
   this->db.seekp(offset, std::ios::beg);
@@ -49,13 +53,14 @@ BlockId DiskManager::AllocateBlock() {
                        std::to_string(offset));
   }
 
-  this->SyncFile();
+  this->db.flush();
   this->blockCount++;
 
   return newBlockId;
 }
 
 void DiskManager::ReadBlock(BlockId id, char *buff) {
+  std::lock_guard<std::mutex> lock(this->mutex);
   if (!this->db.is_open()) {
     this->ThrowIOError("Trying to read from closed DB");
   }
@@ -89,6 +94,7 @@ void DiskManager::ReadBlock(BlockId id, char *buff) {
 }
 
 void DiskManager::WriteBlock(BlockId id, const char *buff) {
+  std::lock_guard<std::mutex> lock(this->mutex);
   if (!this->db.is_open()) {
     this->ThrowIOError("Trying to write to closed DB");
   }
