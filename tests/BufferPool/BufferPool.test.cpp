@@ -295,7 +295,7 @@ static void test_release_non_existent_block_throws() {
   safe_remove(path);
 }
 
-static void test_multiple_blocks_fifo_eviction() {
+static void test_multiple_blocks_lru_eviction() {
   std::string path = make_temp_db_path();
   try {
     auto dm = std::make_unique<DiskManager>(path);
@@ -316,7 +316,7 @@ static void test_multiple_blocks_fifo_eviction() {
     Block *block3 = pool.NewBlock();
     BlockId id3 = block3->block_id;
 
-    assert(block3 != nullptr && "Should allocate new block with FIFO eviction");
+    assert(block3 != nullptr && "Should allocate new block with LRU eviction");
 
     pool.ReleaseBlock(id3, false);
   } catch (...) {
@@ -359,8 +359,8 @@ int main() {
   test_release_non_existent_block_throws();
   std::cout << " - release non-existent block throws test passed\n";
 
-  test_multiple_blocks_fifo_eviction();
-  std::cout << " - multiple blocks FIFO eviction test passed\n";
+  test_multiple_blocks_lru_eviction();
+  std::cout << " - multiple blocks LRU eviction test passed\n";
 
   std::cout << "All BufferPool tests passed.\n";
   return 0;

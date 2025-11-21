@@ -1,5 +1,5 @@
 #pragma once
-#include "../../types//Constants.hpp"
+#include "../../types/Constants.hpp"
 #include <cstring>
 #include <fstream>
 #include <mutex>
