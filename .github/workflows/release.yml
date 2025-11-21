@@ -57,7 +57,7 @@ jobs:
             if [[ "$COMMIT_MSG" =~ ^[Cc]hore ]]; then
               BUMP_TYPE="none"
               echo "Chore commit detected - no version bump"
-            elif [[ "$COMMIT_MSG" =~ ^[Mm]ajor ]]; then
+            elif [[ "$COMMIT_MSG" =~ ^[Mm]ajor[:\-[:space:]] ]]; then
               BUMP_TYPE="major"
               echo "Major commit detected - major version bump"
             elif [[ "$COMMIT_MSG" =~ ^[Ff]eat[:\-[:space:]] ]]; then
