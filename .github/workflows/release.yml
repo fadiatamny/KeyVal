@@ -63,7 +63,7 @@ jobs:
             elif [[ "$COMMIT_MSG" =~ ^[Ff]eat[:\-[:space:]] ]]; then
               BUMP_TYPE="minor"
               echo "Feature commit detected - minor version bump"
-            elif [[ "$COMMIT_MSG" =~ ^[Ff]ix ]]; then
+            elif [[ "$COMMIT_MSG" =~ ^[Ff]ix[:\-[:space:]] ]]; then
               BUMP_TYPE="patch"
               echo "Fix commit detected - patch version bump"
             else
