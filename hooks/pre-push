@@ -1,15 +1,21 @@
 #!/bin/sh
 
-echo "Running formatting checks before push..."
+echo "=== Formatting Code ==="
+find . \( -name "*.cpp" -o -name "*.hpp" \) -print0 | xargs -0 -r clang-format -i
 
-# Run clang-format check
-clang-format --dry-run --Werror src/**/*.cpp src/**/*.hpp 2>&1
+echo "=== Running clang-tidy (recursively, using dist) ==="
+if [ ! -f dist/compile_commands.json ]; then
+  echo "dist/compile_commands.json not found; running meson setup dist..."
+  meson setup dist >/dev/null 2>&1 || true
+fi
+
+find . -name "*.cpp" -print0 | xargs -0 -r -I{} clang-tidy -p dist {} -- -Iinclude -Isrc -std=c++20
 
 if [ $? -ne 0 ]; then
-    echo "❌ Formatting check failed!"
-    echo "Run './build.sh' or 'clang-format -i src/**/*.cpp src/**/*.hpp' to fix formatting"
+    echo "❌ clang-tidy checks failed!"
+    echo "Run './build.sh' to see detailed errors"
     exit 1
 fi
 
-echo "✅ Formatting checks passed!"
+echo "✅ Pre-push checks passed!"
 exit 0
