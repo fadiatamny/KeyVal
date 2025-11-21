@@ -1,0 +1,15 @@
+#!/bin/sh
+
+echo "Running formatting checks before push..."
+
+# Run clang-format check
+clang-format --dry-run --Werror src/**/*.cpp src/**/*.hpp 2>&1
+
+if [ $? -ne 0 ]; then
+    echo "❌ Formatting check failed!"
+    echo "Run './build.sh' or 'clang-format -i src/**/*.cpp src/**/*.hpp' to fix formatting"
+    exit 1
+fi
+
+echo "✅ Formatting checks passed!"
+exit 0
