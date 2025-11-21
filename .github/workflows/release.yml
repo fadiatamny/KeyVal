@@ -54,7 +54,7 @@ jobs:
             echo "Analyzing commit: $COMMIT_MSG"
 
             # Determine bump type based on first word (case-insensitive first letter)
-            if [[ "$COMMIT_MSG" =~ ^[Cc]hore ]]; then
+            if [[ "$COMMIT_MSG" =~ ^[Cc]hore[:\-[:space:]] ]]; then
               BUMP_TYPE="none"
               echo "Chore commit detected - no version bump"
             elif [[ "$COMMIT_MSG" =~ ^[Mm]ajor[:\-[:space:]] ]]; then
