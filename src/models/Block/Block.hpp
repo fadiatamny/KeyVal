@@ -7,6 +7,7 @@ struct Block {
   int referenceCount;
   bool isDirty;
 
+  Block() = default;
   Block(const Block &) = delete;
   Block &operator=(const Block &) = delete;
   Block(Block &&) = delete;
