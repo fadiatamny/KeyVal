@@ -41,6 +41,7 @@ private:
   std::unordered_map<BlockId, size_t> blockTable;
 
   std::list<size_t> evictionList;
+  std::unordered_map<size_t, std::list<size_t>::iterator> evictionListFrameIndices;
   std::vector<bool> isFree;
 
   size_t FindFreeOrEvictFrame();

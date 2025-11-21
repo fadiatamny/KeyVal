@@ -1,5 +1,4 @@
 #include "./BufferPool.hpp"
-#include <algorithm>
 #include <cstring>
 
 BufferPool::BufferPool(size_t poolSize,
@@ -17,6 +16,7 @@ Block *BufferPool::FetchBlock(BlockId blockId) {
     block->referenceCount++;
     this->RemoveFromEvictionList(frameId);
     this->evictionList.push_back(frameId);
+    this->evictionListFrameIndices[frameId] = --this->evictionList.end();
     return block;
   }
 
@@ -112,6 +112,7 @@ size_t BufferPool::FindFreeOrEvictFrame() {
 
       this->blockTable.erase(block->block_id);
       this->evictionList.erase(it);
+      this->evictionListFrameIndices.erase(frameId);
       return frameId;
     }
   }
@@ -134,15 +135,13 @@ void BufferPool::PrepareFrameForReuse(size_t frameId) {
 void BufferPool::MarkFrameInUse(size_t frameId) {
   this->isFree[frameId] = false;
   this->evictionList.push_back(frameId);
+  this->evictionListFrameIndices[frameId] = --this->evictionList.end();
 }
 
 void BufferPool::RemoveFromEvictionList(size_t frameId) {
-  auto frameIndex =
-      std::find(this->evictionList.begin(), this->evictionList.end(), frameId);
-
-  if (frameIndex == this->evictionList.end()) {
-    return;
+  auto posIt = this->evictionListFrameIndices.find(frameId);
+  if (posIt != this->evictionListFrameIndices.end()) {
+    this->evictionList.erase(posIt->second);
+    this->evictionListFrameIndices.erase(posIt);
   }
-
-  this->evictionList.erase(frameIndex);
 }
