@@ -60,7 +60,7 @@ jobs:
             elif [[ "$COMMIT_MSG" =~ ^[Mm]ajor ]]; then
               BUMP_TYPE="major"
               echo "Major commit detected - major version bump"
-            elif [[ "$COMMIT_MSG" =~ ^[Ff]eat ]]; then
+            elif [[ "$COMMIT_MSG" =~ ^[Ff]eat[:\-[:space:]] ]]; then
               BUMP_TYPE="minor"
               echo "Feature commit detected - minor version bump"
             elif [[ "$COMMIT_MSG" =~ ^[Ff]ix ]]; then
