@@ -1,4 +1,4 @@
 #!/bin/bash
 
-./analyze.sh
+./build.sh
 ./dist/src/app
